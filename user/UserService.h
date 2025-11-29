@@ -9,15 +9,15 @@
 
 class UserService {
 public:
-    explicit UserService(const string& usersfile);
+    explicit UserService(const std::string& file);
 
 
-    const vector<User>& getUsers() const;
-    optional<User> getUser(const string& name) const;
+    const std::vector<User>& getUsers() const;
+    std::optional<User> getUser(const std::string& name) const;
 
 private:
-    vector<User> users;
-    string usersfile;
+    std::string usersfile;
+    std::vector<User> users;
 };
 
 #endif //CSCI212_FINAL_PROJECT_USERSERVICE_H
