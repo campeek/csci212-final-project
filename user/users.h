@@ -7,6 +7,7 @@
 #include <vector>
 
 struct User {
+    int id;
     std::string name;
     std::string password;
     std::string role;

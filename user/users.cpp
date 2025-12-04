@@ -8,18 +8,18 @@
 #include <sstream>
 #include <fstream>
 
-
-
-
 User loadUserFromLine(std::string& line){
     std::stringstream ss(line);
 
-    std::string name, password, role;
+    std::string id, name, password, role;
 
+    getline(ss,id,',');
     getline(ss, name, ',');
     getline(ss, password, ',');
     getline(ss, role, ',');
-    return {name,password,role};
+
+    //TODO: handle malformed data. id not parsing to int breaks stuff
+    return {std::stoi(id), name,password,role};
 }
 
 std::vector<User> load_users(const std::string& path) {
