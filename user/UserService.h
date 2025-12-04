@@ -11,9 +11,10 @@ class UserService {
 public:
     explicit UserService(const std::string& file);
 
-
     const std::vector<User>& getUsers() const;
-    std::optional<User> getUser(const std::string& name) const;
+    std::optional<User> getUserByName(const std::string& name) const;
+    User addUser(const std::string& name, const std::string& password);
+    void removeUser(int id);
 
 private:
     std::string usersfile;

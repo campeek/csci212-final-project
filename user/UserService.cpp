@@ -13,7 +13,7 @@ const std::vector<User>& UserService::getUsers() const {
     return users;
 }
 
-std::optional<User> UserService::getUser(const std::string &name) const {
+std::optional<User> UserService::getUserByName(const std::string &name) const {
     auto it = std::find_if(users.begin(), users.end(), [&](const User &user) {
         return user.name == name;
     });
@@ -22,6 +22,22 @@ std::optional<User> UserService::getUser(const std::string &name) const {
         return std::nullopt;
     }
     return *it;
+}
+
+User UserService::addUser(const std::string &name, const std::string &password) {
+    int id = users.size();
+    User newUser = {id, name, password};
+    serialize(users, usersfile);
+
+    return newUser;
+}
+
+void UserService::removeUser(int id) {
+    for (auto it = users.begin(); it != users.end(); it++) {
+        if (it->id == id) {
+            users.erase(it);
+        }
+    }
 }
 
 
