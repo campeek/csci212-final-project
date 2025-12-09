@@ -83,6 +83,10 @@ public class UserService {
         return Optional.empty(); // otherwise return nothing
     }
 
+    /**
+     * Gets all users
+     * @return An {@code Optional<ArrayList<User>>} containing all users
+     */
     // cursed return type vv
     public Optional<ArrayList<User>> getAllUsers(){
         ArrayList<User> userArrayList = new ArrayList<>();
