@@ -4,6 +4,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 // UserService.java
@@ -110,7 +112,8 @@ public class UserService {
         }
 
         try{
-            List<String> lines = fr.readAllLines();
+            //List<String> lines = fr.readAllLines();
+            List<String> lines = Files.readAllLines(Paths.get(filePath));
             for(String line : lines){
                 String[] userData = line.split(","); // split the line by commas
 
