@@ -1,18 +1,20 @@
-public class book{
+package com.library.checkout.book;
+
+public class Book {
 	private String author;
 	private String title;
 	private int serial_number;
-	public book(){
+	public Book(){
 		this.author="";
 		this.title="";
 		this.serial_number=-1;
 	}
-	public book(String author_in, String title_in, int serial_number_in){
+	public Book(String author_in, String title_in, int serial_number_in){
 		this.author=author_in;
 		this.title=title_in;
 		this.serial_number=serial_number_in;
 	}
-	public book(String whole_line) {
+	public Book(String whole_line) {
 		try {
 		String[] temp=whole_line.split(",");
 		this.author=temp[0];

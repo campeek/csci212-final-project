@@ -1,4 +1,4 @@
-// LibraryUI.java
+package com.library.checkout;// LibraryUI.java
 // Madelyn LaPointe
 
 import javax.swing.*;           

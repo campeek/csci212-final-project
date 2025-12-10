@@ -1,4 +1,5 @@
-import java.util.ArrayList;
+package com.library.checkout.book;
+
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -14,7 +15,7 @@ public class BookSorter {
     // Core sorting method.
     // option: 1 = title, 2 = author, 3 = serial number
      
-    public static void sortBooks(List<book> books, int option) {
+    public static void sortBooks(List<Book> books, int option) {
         if (books == null || books.isEmpty()) {
             System.out.println("No books to sort.");
             return;
@@ -22,9 +23,9 @@ public class BookSorter {
 
         switch (option) {
             case BY_TITLE:
-                Collections.sort(books, new Comparator<book>() {
+                Collections.sort(books, new Comparator<Book>() {
                     @Override
-                    public int compare(book b1, book b2) {
+                    public int compare(Book b1, Book b2) {
                         return b1.get_title().compareToIgnoreCase(b2.get_title());
                     }
                 });
@@ -32,9 +33,9 @@ public class BookSorter {
                 break;
 
             case BY_AUTHOR:
-                Collections.sort(books, new Comparator<book>() {
+                Collections.sort(books, new Comparator<Book>() {
                     @Override
-                    public int compare(book b1, book b2) {
+                    public int compare(Book b1, Book b2) {
                         return b1.get_author().compareToIgnoreCase(b2.get_author());
                     }
                 });
@@ -42,9 +43,9 @@ public class BookSorter {
                 break;
 
             case BY_SERIAL_NUMBER:
-                Collections.sort(books, new Comparator<book>() {
+                Collections.sort(books, new Comparator<Book>() {
                     @Override
-                    public int compare(book b1, book b2) {
+                    public int compare(Book b1, Book b2) {
                         return Integer.compare(b1.get_serial_number(), b2.get_serial_number());
                     }
                 });
@@ -58,7 +59,7 @@ public class BookSorter {
 
     //      Shows a menu, asks the user how to sort, then calls sortBooks.
      
-    public static void sortBooksMenu(List<book> books, Scanner in) {
+    public static void sortBooksMenu(List<Book> books, Scanner in) {
         if (books == null || books.isEmpty()) {
             System.out.println("No books to sort.");
             return;
