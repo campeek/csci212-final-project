@@ -38,7 +38,7 @@ public class Book {
 			}
 		}
 		catch(Exception e) {
-			System.err.println("error converting whole string to Book. remember to use the format 'author,title,number'");
+			System.err.println("error converting whole string to Book. remember to use the format 'author,title,number,boolean'");
 		}
 	}
 	public String get_author(){
