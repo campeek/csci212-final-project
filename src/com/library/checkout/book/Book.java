@@ -2,16 +2,10 @@ package com.library.checkout.book;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
-import java.io.FileNotFoundException;
 import java.util.Scanner;
 import java.util.Vector;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.nio.file.StandardOpenOption;
 
 public class Book {
 	private String author;
@@ -81,7 +75,7 @@ public class Book {
 		String temp_title;
 		int temp_SN;
 		boolean temp_check;
-		try (Scanner scanner = new Scanner(new File("FIXME INSERT FILEPATH HERE"))) {
+		try (Scanner scanner = new Scanner(new File("src/com/library/checkout/book/Books.txt"))) {
         	while (scanner.hasNextLine()) {
                 temp_line = scanner.nextLine();
 				try {
