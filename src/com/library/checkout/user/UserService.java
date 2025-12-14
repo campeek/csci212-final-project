@@ -87,20 +87,15 @@ public class UserService {
 
     /**
      * Gets all users
-     * @return An {@code Optional<ArrayList<User>>} containing all users
+     * @return An {@code ArrayList<User>} containing all users
      */
-    // cursed return type vv
-    public Optional<ArrayList<User>> getAllUsers(){
+    public ArrayList<User> getAllUsers(){
         ArrayList<User> userArrayList = new ArrayList<>();
         for(Map.Entry<Integer, User> entry: users.entrySet()){ // dump all users into an arraylist
             User user = entry.getValue();
             userArrayList.add(user);
         }
-        if(userArrayList.isEmpty()){ // if there's no users, return nothing
-            return Optional.empty();
-        } else {
-            return Optional.of(userArrayList); // otherwise, return the list.
-        }
+        return userArrayList;
     }
 
     private void loadUsers(){
@@ -112,7 +107,6 @@ public class UserService {
         }
 
         try{
-            //List<String> lines = fr.readAllLines();
             List<String> lines = Files.readAllLines(Paths.get(filePath));
             for(String line : lines){
                 String[] userData = line.split(","); // split the line by commas
@@ -123,6 +117,10 @@ public class UserService {
                 String roles = userData[3];
 
                 User newUser = new User(id, username, password, roles);
+                for(int i = 4; i< userData.length; i++){
+                    int bookId = Integer.parseInt(userData[i]);
+                    newUser.addBook(bookId);
+                }
 
                 if(users.containsKey(id)){ // if there's already a user with this id loaded,
                     throw new RuntimeException("user id collision"); // freak out

@@ -36,9 +36,8 @@ public class TestUserService {
         System.out.println("Loaded Users: ");
 
         // check loaded users
-        Optional<ArrayList<User>> allUsersOpt = userService.getAllUsers();
-        if(allUsersOpt.isPresent()){
-            ArrayList<User> allUsers = allUsersOpt.get();
+        ArrayList<User> allUsers = userService.getAllUsers();
+        if(!allUsers.isEmpty()){
             for(User u:allUsers){
                 System.out.println(u.toString());
             }
