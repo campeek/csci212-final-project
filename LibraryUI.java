@@ -3,19 +3,21 @@
 
 package com.library.checkout;
 
-import javax.swing.*;           
-import java.awt.*;              
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.*;
 
-import com.library.checkout.book.Book;             // Book class 
+import com.library.checkout.book.Book;             // Book class
 import com.library.checkout.book.BookSorter;       // Sorting helper
+import com.library.checkout.user.User;             // User class (for login + role + id)
 import com.library.checkout.user.UserService;      // User database logic
 
-import java.time.LocalDate;      
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public class LibraryUI {       
+public class LibraryUI {
 
     private JFrame loginFrame; // Window for the login screen
     private JFrame userMenuFrame; // Window for the normal user menu
@@ -24,13 +26,20 @@ public class LibraryUI {
     // Stores the current user's role
     private String currentRole = "";
 
+    // Store current logged-in user id so we DON'T ask for it on checkout/return
+    private Integer currentUserId = null;
+
     // Backend objects
-    private UserService userService = new UserService("users.txt");              // Reads/writes users.txt
-    private Librarian librarian = new Librarian("books.txt", userService);       // Reads/writes books.txt + uses UserService
+    private UserService userService = null;              // Reads/writes users.txt
+    private Librarian librarian = null;                  // Reads/writes books.txt + uses UserService
 
-    // MAIN PROGRAM 
+    // Files (these need to match where your txt files actually are in the project)
+    private static final String USERS_FILE = "com/library/checkout/users.txt";
+    private static final String BOOKS_FILE = "com/library/checkout/books.txt";
 
-    public static void main(String[] args) {    
+    // MAIN PROGRAM
+
+    public static void main(String[] args) {
 
         try {
             // Loop through all installed look-and-feel options on this computer
@@ -46,10 +55,10 @@ public class LibraryUI {
             // If anything goes wrong, just move on and use default 'look-and-feel'
         }
 
-        SwingUtilities.invokeLater(new Runnable() { 
-            @Override                               
-            public void run() {                     
-                new LibraryUI().showLoginWindow(); 
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new LibraryUI().showLoginWindow();
             }
         });
     }
@@ -57,10 +66,10 @@ public class LibraryUI {
     // Pop-ups
 
     private void showInfo(String msg, String title) {
-        JOptionPane.showMessageDialog(   
-                null, // To center it (no parent component)                    
-                msg,                     
-                title,                   
+        JOptionPane.showMessageDialog(
+                null, // To center it (no parent component)
+                msg,
+                title,
                 JOptionPane.INFORMATION_MESSAGE // Type of dialog: informational
         );
     }
@@ -68,11 +77,49 @@ public class LibraryUI {
     // Shows an error pop-up window with a message and title
     private void showError(String msg, String title) {
         JOptionPane.showMessageDialog(
-                null,                    
-                msg,                     
-                title,                   
-                JOptionPane.ERROR_MESSAGE // Type of dialog: error 
+                null,
+                msg,
+                title,
+                JOptionPane.ERROR_MESSAGE // Type of dialog: error
         );
+    }
+
+    // make sure backend is ready before we try to do anything
+    private boolean initBackendIfNeeded() {
+        if (userService != null && librarian != null) {
+            return true;
+        }
+
+        try {
+            java.nio.file.Path usersPath = java.nio.file.Paths.get(USERS_FILE);
+            java.nio.file.Path booksPath = java.nio.file.Paths.get(BOOKS_FILE);
+
+            // create the files if they don't exist so it doesn't crash on startup
+            if (!java.nio.file.Files.exists(usersPath)) {
+                java.nio.file.Files.createDirectories(usersPath.getParent());
+                java.nio.file.Files.createFile(usersPath);
+            }
+            if (!java.nio.file.Files.exists(booksPath)) {
+                java.nio.file.Files.createDirectories(booksPath.getParent());
+                java.nio.file.Files.createFile(booksPath);
+            }
+
+            userService = new UserService(USERS_FILE);
+            librarian = new Librarian(BOOKS_FILE, userService);
+
+            return true;
+
+        } catch (Exception ex) {
+            showError(
+                    "Backend failed to load.\n\n" +
+                    "Make sure these files exist in your project:\n" +
+                    " - " + USERS_FILE + "\n" +
+                    " - " + BOOKS_FILE + "\n\n" +
+                    "Error: " + ex.getMessage(),
+                    "Startup Error"
+            );
+            return false;
+        }
     }
 
     private ArrayList<Book> getSortedBooksCopy(List<Book> books) {
@@ -131,7 +178,7 @@ public class LibraryUI {
               .append(") ");
 
             // Show if rented or available using librarian logic
-            if (librarian.isRented(serial)) {
+            if (librarian != null && librarian.isRented(serial)) {
                 sb.append("[RENTED]");
             } else {
                 sb.append("[AVAILABLE]");
@@ -143,6 +190,50 @@ public class LibraryUI {
         return sb.toString();
     }
 
+    // Creates an account using UserService
+    private void createAccountFlow() {
+        if (!initBackendIfNeeded()) return;
+
+        String username = JOptionPane.showInputDialog(null, "Create username:");
+        if (username == null) return;
+        username = username.trim();
+        if (username.isEmpty()) {
+            showError("Username cannot be empty.", "Create Account");
+            return;
+        }
+
+        // prevent duplicates
+        Optional<User> existing = userService.getUserByUsername(username);
+        if (existing.isPresent()) {
+            showError("That username already exists. Pick another.", "Create Account");
+            return;
+        }
+
+        String password = JOptionPane.showInputDialog(null, "Create password:");
+        if (password == null) return;
+        password = password.trim();
+        if (password.isEmpty()) {
+            showError("Password cannot be empty.", "Create Account");
+            return;
+        }
+
+        // Default role for created accounts
+        String role = "user";
+
+        // Create user + save to users.txt
+        userService.addUser(username, password, role);
+
+        // Fetch user back so we can show their id
+        Optional<User> newUserOpt = userService.getUserByUsername(username);
+        if (newUserOpt.isPresent()) {
+            User newUser = newUserOpt.get();
+            showInfo("Account created!\nYour User ID is: " + newUser.id() + "\nRole: " + newUser.roles(),
+                    "Create Account");
+        } else {
+            showInfo("Account created! (Could not re-load user ID, but it was saved.)", "Create Account");
+        }
+    }
+
     // Login Screen
 
     // Builds login window
@@ -151,6 +242,10 @@ public class LibraryUI {
         if (loginFrame != null) {
             loginFrame.dispose();
         }
+
+        // reset login session values
+        currentRole = "";
+        currentUserId = null;
 
         // New window with the title "Library System - Login"
         loginFrame = new JFrame("Library System - Login");
@@ -181,45 +276,47 @@ public class LibraryUI {
         headerLabel.setForeground(Color.WHITE); // White text
         headerLabel.setFont(new Font("SansSerif", Font.BOLD, 24)); // Big bold font
 
-        // BorderLayout in the header panel 
+        // BorderLayout in the header panel
         headerPanel.setLayout(new BorderLayout());
         headerPanel.add(headerLabel, BorderLayout.CENTER);
 
         // Card panel
 
-        JPanel cardPanel = new JPanel(); 
+        JPanel cardPanel = new JPanel();
         cardPanel.setBackground(cardColor); // White background
         // Padding:
         cardPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(200, 200, 200), 1), // Thin gray outline
-                BorderFactory.createEmptyBorder(20, 25, 20, 25)              
+                BorderFactory.createEmptyBorder(20, 25, 20, 25)
         ));
         // BorderLayout [to split card into form (center) and buttons (south)]
         cardPanel.setLayout(new BorderLayout(0, 15)); // Horizontal, vertical (gaps)
 
         // Panel to hold the labels and text fields in a grid
-        JPanel formPanel = new JPanel(new GridLayout(3, 2, 10, 12)); 
-        formPanel.setOpaque(false);                                 
+        JPanel formPanel = new JPanel(new GridLayout(3, 2, 10, 12));
+        formPanel.setOpaque(false);
 
         // Create the form elements (labels, text fields, password field)
-        JLabel userLabel = new JLabel("Username:");       
-        JTextField userField = new JTextField();          
-        JLabel passLabel = new JLabel("Password:");       
-        JPasswordField passField = new JPasswordField();  
+        JLabel userLabel = new JLabel("Username:");
+        JTextField userField = new JTextField();
+        JLabel passLabel = new JLabel("Password:");
+        JPasswordField passField = new JPasswordField();
+
         JLabel hintLabel = new JLabel(
-        "<html><div style='width:360px;'>"
-                + "To log in, enter your custom username and password.<br>"
-                + "</div></html>"
-);
+                "<html><div style='width:360px;'>"
+                        + "To log in, enter your custom username and password.<br>"
+                        + "If you don’t have an account, click <b>Create Account</b>."
+                        + "</div></html>"
+        );
 
         // Fonts
-        Font labelFont = new Font("SansSerif", Font.PLAIN, 15);   
+        Font labelFont = new Font("SansSerif", Font.PLAIN, 15);
         userLabel.setFont(labelFont);
         passLabel.setFont(labelFont);
         userField.setFont(labelFont);
         passField.setFont(labelFont);
         hintLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
-        hintLabel.setForeground(new Color(90, 90, 90));           
+        hintLabel.setForeground(new Color(90, 90, 90));
 
         // Add the components to the form panel in grid order
         formPanel.add(userLabel); // Row 1, column 1
@@ -229,29 +326,49 @@ public class LibraryUI {
         formPanel.add(new JLabel("")); // Row 3, column 1
         formPanel.add(hintLabel);     // Row 3, column 2
 
-        // Button for logging in and button for exiting
+        // Buttons
         JButton loginButton = new JButton("Login");
+        JButton createAccountButton = new JButton("Create Account");
         JButton exitButton = new JButton("Exit");
 
         // Font for buttons
-        loginButton.setFont(new Font("SansSerif", Font.BOLD, 15));
-        exitButton.setFont(new Font("SansSerif", Font.BOLD, 15));
+        Font btnFont = new Font("SansSerif", Font.BOLD, 15);
+        loginButton.setFont(btnFont);
+        createAccountButton.setFont(btnFont);
+        exitButton.setFont(btnFont);
 
         // Login button style
         loginButton.setBackground(buttonColor);
         loginButton.setForeground(Color.WHITE);
-        loginButton.setFocusPainted(false);          
+        loginButton.setFocusPainted(false);
+
+        // Create account style (slightly different so it stands out)
+        createAccountButton.setBackground(new Color(70, 160, 90));
+        createAccountButton.setForeground(Color.WHITE);
+        createAccountButton.setFocusPainted(false);
 
         // Exit button style
         exitButton.setBackground(new Color(180, 60, 60));
         exitButton.setForeground(Color.WHITE);
-        exitButton.setFocusPainted(false);           
+        exitButton.setFocusPainted(false);
 
-        // Create a panel to hold the two buttons side by side
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        // Button layout:
+        // Row 1: Login + Exit
+        // Row 2: Create Account centered
+        JPanel buttonRow1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        buttonRow1.setOpaque(false);
+        buttonRow1.add(loginButton);
+        buttonRow1.add(exitButton);
+
+        JPanel buttonRow2 = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        buttonRow2.setOpaque(false);
+        buttonRow2.add(createAccountButton);
+
+        JPanel buttonPanel = new JPanel();
         buttonPanel.setOpaque(false);
-        buttonPanel.add(loginButton);               
-        buttonPanel.add(exitButton);                 
+        buttonPanel.setLayout(new GridLayout(2, 1, 0, 8));
+        buttonPanel.add(buttonRow1);
+        buttonPanel.add(buttonRow2);
 
         // Add the form panel and button panel into the card panel
         cardPanel.add(formPanel, BorderLayout.CENTER);   // Form in the middle of the card
@@ -260,54 +377,81 @@ public class LibraryUI {
         // Add the header panel to the top of the background panel
         backgroundPanel.add(headerPanel, BorderLayout.NORTH);
 
-        // Create a wrapper panel to center the cardPanel 
+        // Create a wrapper panel to center the cardPanel
         JPanel centerWrapper = new JPanel(new GridBagLayout());
-        centerWrapper.setOpaque(false);              
+        centerWrapper.setOpaque(false);
         centerWrapper.add(cardPanel); // Place the card panel in the center
         backgroundPanel.add(centerWrapper, BorderLayout.CENTER);
 
         // Use the background panel as the content of the login window
         loginFrame.setContentPane(backgroundPanel);
-        loginFrame.setSize(900, 600);                
-        loginFrame.setLocationRelativeTo(null);     
-        loginFrame.setResizable(true);             
-        loginFrame.setVisible(true);                 
+        loginFrame.setSize(900, 600);
+        loginFrame.setLocationRelativeTo(null);
+        loginFrame.setResizable(true);
+        loginFrame.setVisible(true);
 
         // Buttons logic
 
-        // When the "Login" button is clicked, check  username and password
-        loginButton.addActionListener(new ActionListener() { // ActionListener to handle clicks
-            @Override // Override the actionPerformed method
-            public void actionPerformed(ActionEvent e) { 
-                String username = userField.getText().trim(); // Get the username text
-                String password = new String(passField.getPassword()).trim(); // Get the password text
+        // When the "Login" button is clicked, check username and password against UserService
+        loginButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!initBackendIfNeeded()) return;
 
-                // If username box = empty, show an error and stop
-                if (username.isEmpty()) {
-                    showError("Please enter a username.", "Login Error");
-                    return;                                  
+                String username = userField.getText().trim();
+                String password = new String(passField.getPassword()).trim();
+
+                if (username.isEmpty() || password.isEmpty()) {
+                    showError("Please enter BOTH username and password.", "Login Error");
+                    return;
                 }
-                // If username = "librarian" AND password = "admin", then role is librarian (basically the admin)
-                if (username.equalsIgnoreCase("librarian") && password.equals("admin")) {
-                    currentRole = "librarian"; // Record role              
-                    loginFrame.dispose();                     
-                    showLibrarianMenu();                      
+
+                Optional<User> userOpt = userService.getUserByUsername(username);
+                if (userOpt.isEmpty()) {
+                    showError("Username not found. Click Create Account if you need one.", "Login Error");
+                    return;
+                }
+
+                User u = userOpt.get();
+
+                // Password check
+                if (!u.password().equals(password)) {
+                    showError("Incorrect password.", "Login Error");
+                    return;
+                }
+
+                // Successful login
+                currentUserId = u.id();
+                currentRole = u.roles();
+
+                loginFrame.dispose();
+
+                // If they are librarian role, show librarian menu, else user menu
+                if (currentRole != null && currentRole.equalsIgnoreCase("librarian")) {
+                    showLibrarianMenu();
                 } else {
-                    currentRole = "user";                     
-                    loginFrame.dispose();                     
-                    showUserMenu();                           
+                    showUserMenu();
                 }
             }
         });
 
-        // When  "Exit" button is clicked, close the entire program
-        exitButton.addActionListener(e -> System.exit(0)); 
+        // Create Account button
+        createAccountButton.addActionListener(e -> createAccountFlow());
+
+        // When "Exit" button is clicked, close the entire program
+        exitButton.addActionListener(e -> System.exit(0));
     }
 
     // User Menu
 
     // Menu for normal users
     private void showUserMenu() {
+        if (!initBackendIfNeeded()) {
+            // if backend dies, just kick back to login window
+            showLoginWindow();
+            return;
+        }
+
         if (userMenuFrame != null) {
             userMenuFrame.dispose();
         }
@@ -326,11 +470,14 @@ public class LibraryUI {
         backgroundPanel.setBackground(bgColor);
         backgroundPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // Header bar at the top 
+        // Header bar at the top
         JPanel headerPanel = new JPanel();
         headerPanel.setBackground(headerColor);
         headerPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        JLabel headerLabel = new JLabel("User Menu", SwingConstants.CENTER);
+
+        String idText = (currentUserId == null) ? "" : (" (ID: " + currentUserId + ")");
+        JLabel headerLabel = new JLabel("User Menu" + idText, SwingConstants.CENTER);
+
         headerLabel.setForeground(Color.WHITE);
         headerLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
         headerPanel.setLayout(new BorderLayout());
@@ -438,22 +585,24 @@ public class LibraryUI {
 
         // Click "Check Out Book"
         checkoutButton.addActionListener(e -> {
+            if (currentUserId == null) {
+                showError("No logged-in user ID found. Please log in again.", "Check Out");
+                return;
+            }
+
             String serialText = JOptionPane.showInputDialog(null, "Enter the serial number:");
             if (serialText == null || serialText.trim().isEmpty()) return;
 
-            String userIdText = JOptionPane.showInputDialog(null, "Enter your user ID:");
-            if (userIdText == null || userIdText.trim().isEmpty()) return;
-
             try {
                 int serial = Integer.parseInt(serialText.trim());
-                int userId = Integer.parseInt(userIdText.trim());
+                int userId = currentUserId;
 
                 LocalDate due = librarian.checkoutBook(serial, userId);
 
                 showInfo("Checked out successfully!\nDue date: " + due, "Check Out");
 
             } catch (NumberFormatException ex) {
-                showError("Serial number and user ID must be numbers.", "Check Out");
+                showError("Serial number must be a number.", "Check Out");
             } catch (Librarian.BookNotFoundException ex) {
                 showError(ex.getMessage(), "Check Out");
             } catch (Librarian.BookAlreadyRentedException ex) {
@@ -465,15 +614,17 @@ public class LibraryUI {
 
         // Click "Return Book"
         returnButton.addActionListener(e -> {
+            if (currentUserId == null) {
+                showError("No logged-in user ID found. Please log in again.", "Return");
+                return;
+            }
+
             String serialText = JOptionPane.showInputDialog(null, "Enter the serial number:");
             if (serialText == null || serialText.trim().isEmpty()) return;
 
-            String userIdText = JOptionPane.showInputDialog(null, "Enter your user ID:");
-            if (userIdText == null || userIdText.trim().isEmpty()) return;
-
             try {
                 int serial = Integer.parseInt(serialText.trim());
-                int userId = Integer.parseInt(userIdText.trim());
+                int userId = currentUserId;
 
                 double fine = librarian.returnBook(serial, userId);
 
@@ -484,7 +635,7 @@ public class LibraryUI {
                 }
 
             } catch (NumberFormatException ex) {
-                showError("Serial number and user ID must be numbers.", "Return");
+                showError("Serial number must be a number.", "Return");
             } catch (Librarian.BookNotFoundException ex) {
                 showError(ex.getMessage(), "Return");
             } catch (Librarian.NotRentedException ex) {
@@ -496,9 +647,10 @@ public class LibraryUI {
 
         // Click "Log Out"
         logoutButton.addActionListener(e -> {
-            userMenuFrame.dispose(); 
-            currentRole = "";        
-            showLoginWindow();       
+            userMenuFrame.dispose();
+            currentRole = "";
+            currentUserId = null;
+            showLoginWindow();
         });
     }
 
@@ -506,6 +658,11 @@ public class LibraryUI {
 
     // Menu for librarian users
     private void showLibrarianMenu() {
+        if (!initBackendIfNeeded()) {
+            showLoginWindow();
+            return;
+        }
+
         if (librarianMenuFrame != null) {
             librarianMenuFrame.dispose();
         }
@@ -528,7 +685,10 @@ public class LibraryUI {
         JPanel headerPanel = new JPanel();
         headerPanel.setBackground(headerColor);
         headerPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        JLabel headerLabel = new JLabel("Librarian Menu", SwingConstants.CENTER);
+
+        String idText = (currentUserId == null) ? "" : (" (ID: " + currentUserId + ")");
+        JLabel headerLabel = new JLabel("Librarian Menu" + idText, SwingConstants.CENTER);
+
         headerLabel.setForeground(Color.WHITE);
         headerLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
         headerPanel.setLayout(new BorderLayout());
@@ -654,9 +814,10 @@ public class LibraryUI {
 
         // Click "Log Out"
         logoutButton.addActionListener(e -> {
-            librarianMenuFrame.dispose(); 
-            currentRole = "";            
-            showLoginWindow();           
+            librarianMenuFrame.dispose();
+            currentRole = "";
+            currentUserId = null;
+            showLoginWindow();
         });
     }
 }
