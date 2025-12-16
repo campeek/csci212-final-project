@@ -95,7 +95,7 @@ public class Book {
 				}
 				catch(Exception e) {
 					System.err.println("error converting whole string to Book. remember to use the format 'author,title,number,boolean'");
-					break;
+					continue;
 				}	
             }
         } 
