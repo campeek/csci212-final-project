@@ -1,9 +1,19 @@
 // LibraryUI.java
 // Madelyn LaPointe
 
+package com.library.checkout;
+
 import javax.swing.*;           
 import java.awt.*;              
-import java.awt.event.*;        
+import java.awt.event.*;
+
+import com.library.checkout.book.Book;             // Book class 
+import com.library.checkout.book.BookSorter;       // Sorting helper
+import com.library.checkout.user.UserService;      // User database logic
+
+import java.time.LocalDate;      
+import java.util.ArrayList;
+import java.util.List;
 
 public class LibraryUI {       
 
@@ -13,6 +23,10 @@ public class LibraryUI {
 
     // Stores the current user's role
     private String currentRole = "";
+
+    // Backend objects
+    private UserService userService = new UserService("users.txt");              // Reads/writes users.txt
+    private Librarian librarian = new Librarian("books.txt", userService);       // Reads/writes books.txt + uses UserService
 
     // MAIN PROGRAM 
 
@@ -59,6 +73,74 @@ public class LibraryUI {
                 title,                   
                 JOptionPane.ERROR_MESSAGE // Type of dialog: error 
         );
+    }
+
+    private ArrayList<Book> getSortedBooksCopy(List<Book> books) {
+
+        ArrayList<Book> copy = new ArrayList<>(books);
+
+        // If there are no books, just return the empty list
+        if (copy.isEmpty()) {
+            return copy;
+        }
+
+        // Popup choices for sorting
+        String[] options = {"Title (A-Z)", "Author (A-Z)", "Serial Number (low-high)"};
+
+        int choice = JOptionPane.showOptionDialog(
+                null,
+                "How would you like to sort the books?",
+                "Sort Books",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+
+        // Sort based on what they clicked
+        if (choice == 0) {
+            BookSorter.sortBooks(copy, BookSorter.BY_TITLE);
+        } else if (choice == 1) {
+            BookSorter.sortBooks(copy, BookSorter.BY_AUTHOR);
+        } else if (choice == 2) {
+            BookSorter.sortBooks(copy, BookSorter.BY_SERIAL_NUMBER);
+        }
+        // If they close the popup, we just return unsorted copy
+
+        return copy;
+    }
+
+    // Convert a list of Book objects into a readable string for popups
+    private String booksToPrettyString(List<Book> books) {
+
+        if (books == null || books.isEmpty()) {
+            return "No books found.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (Book b : books) {
+            int serial = b.get_serial_number();
+
+            sb.append(b.get_title())
+              .append(" by ")
+              .append(b.get_author())
+              .append(" (serial ")
+              .append(serial)
+              .append(") ");
+
+            // Show if rented or available using librarian logic
+            if (librarian.isRented(serial)) {
+                sb.append("[RENTED]");
+            } else {
+                sb.append("[AVAILABLE]");
+            }
+
+            sb.append("\n");
+        }
+
+        return sb.toString();
     }
 
     // Login Screen
@@ -124,7 +206,11 @@ public class LibraryUI {
         JTextField userField = new JTextField();          
         JLabel passLabel = new JLabel("Password:");       
         JPasswordField passField = new JPasswordField();  
-        JLabel hintLabel = new JLabel("NOTE: librarian (username) and admin (password) will log you into the librarian account"); // Login info
+        JLabel hintLabel = new JLabel(
+        "<html><div style='width:360px;'>"
+                + "To log in, enter your custom username and password.<br>"
+                + "</div></html>"
+);
 
         // Fonts
         Font labelFont = new Font("SansSerif", Font.PLAIN, 15);   
@@ -182,9 +268,9 @@ public class LibraryUI {
 
         // Use the background panel as the content of the login window
         loginFrame.setContentPane(backgroundPanel);
-        loginFrame.setSize(600, 450);                
+        loginFrame.setSize(900, 600);                
         loginFrame.setLocationRelativeTo(null);     
-        loginFrame.setResizable(false);             
+        loginFrame.setResizable(true);             
         loginFrame.setVisible(true);                 
 
         // Buttons logic
@@ -304,24 +390,109 @@ public class LibraryUI {
         // Button actions for the user menu
 
         // Click "View All Books"
-        viewAllButton.addActionListener(e ->
-                showInfo("Viewing all books... (placeholder)", "View All Books"));
+        viewAllButton.addActionListener(e -> {
+            List<Book> allBooks = librarian.listAllBooks();
+
+            // Ask for sorting, then show list
+            ArrayList<Book> sorted = getSortedBooksCopy(allBooks);
+
+            showInfo(booksToPrettyString(sorted), "View All Books");
+        });
 
         // Click "Search Books by Title"
-        searchTitleButton.addActionListener(e ->
-                showInfo("Searching books by title... (placeholder)", "Search by Title"));
+        searchTitleButton.addActionListener(e -> {
+            String query = JOptionPane.showInputDialog(null, "Enter part of the title:");
+            if (query == null || query.trim().isEmpty()) return;
+
+            List<Book> results = librarian.searchByTitle(query.trim());
+
+            // Ask for sorting, then show results
+            ArrayList<Book> sorted = getSortedBooksCopy(results);
+
+            showInfo(booksToPrettyString(sorted), "Search by Title");
+        });
 
         // Click "View Books Currently Rented"
-        viewRentedButton.addActionListener(e ->
-                showInfo("Viewing books currently rented... (placeholder)", "View Rented"));
+        viewRentedButton.addActionListener(e -> {
+            List<Book> allBooks = librarian.listAllBooks();
+
+            StringBuilder sb = new StringBuilder();
+
+            for (Book b : allBooks) {
+                if (librarian.isRented(b.get_serial_number())) {
+                    sb.append(b.get_title())
+                      .append(" by ")
+                      .append(b.get_author())
+                      .append(" (serial ")
+                      .append(b.get_serial_number())
+                      .append(")\n");
+                }
+            }
+
+            if (sb.length() == 0) {
+                showInfo("No books are currently rented.", "View Rented");
+            } else {
+                showInfo(sb.toString(), "View Rented");
+            }
+        });
 
         // Click "Check Out Book"
-        checkoutButton.addActionListener(e ->
-                showInfo("Checking out a book... (placeholder)", "Check Out"));
+        checkoutButton.addActionListener(e -> {
+            String serialText = JOptionPane.showInputDialog(null, "Enter the serial number:");
+            if (serialText == null || serialText.trim().isEmpty()) return;
+
+            String userIdText = JOptionPane.showInputDialog(null, "Enter your user ID:");
+            if (userIdText == null || userIdText.trim().isEmpty()) return;
+
+            try {
+                int serial = Integer.parseInt(serialText.trim());
+                int userId = Integer.parseInt(userIdText.trim());
+
+                LocalDate due = librarian.checkoutBook(serial, userId);
+
+                showInfo("Checked out successfully!\nDue date: " + due, "Check Out");
+
+            } catch (NumberFormatException ex) {
+                showError("Serial number and user ID must be numbers.", "Check Out");
+            } catch (Librarian.BookNotFoundException ex) {
+                showError(ex.getMessage(), "Check Out");
+            } catch (Librarian.BookAlreadyRentedException ex) {
+                showError(ex.getMessage(), "Check Out");
+            } catch (Librarian.UserNotFoundException ex) {
+                showError(ex.getMessage(), "Check Out");
+            }
+        });
 
         // Click "Return Book"
-        returnButton.addActionListener(e ->
-                showInfo("Returning a book... (placeholder)", "Return"));
+        returnButton.addActionListener(e -> {
+            String serialText = JOptionPane.showInputDialog(null, "Enter the serial number:");
+            if (serialText == null || serialText.trim().isEmpty()) return;
+
+            String userIdText = JOptionPane.showInputDialog(null, "Enter your user ID:");
+            if (userIdText == null || userIdText.trim().isEmpty()) return;
+
+            try {
+                int serial = Integer.parseInt(serialText.trim());
+                int userId = Integer.parseInt(userIdText.trim());
+
+                double fine = librarian.returnBook(serial, userId);
+
+                if (fine > 0) {
+                    showInfo("Returned successfully!\nFine due: $" + fine, "Return");
+                } else {
+                    showInfo("Returned successfully!\nNo fine due.", "Return");
+                }
+
+            } catch (NumberFormatException ex) {
+                showError("Serial number and user ID must be numbers.", "Return");
+            } catch (Librarian.BookNotFoundException ex) {
+                showError(ex.getMessage(), "Return");
+            } catch (Librarian.NotRentedException ex) {
+                showError(ex.getMessage(), "Return");
+            } catch (Librarian.NotRentedByUserException ex) {
+                showError(ex.getMessage(), "Return");
+            }
+        });
 
         // Click "Log Out"
         logoutButton.addActionListener(e -> {
@@ -415,20 +586,71 @@ public class LibraryUI {
         // Button Actions
 
         // Click "View All Books"
-        viewAllButton.addActionListener(e ->
-                showInfo("Viewing all books... (Librarian view placeholder)", "View All Books"));
+        viewAllButton.addActionListener(e -> {
+            List<Book> allBooks = librarian.listAllBooks();
+
+            // Ask for sorting, then show list
+            ArrayList<Book> sorted = getSortedBooksCopy(allBooks);
+
+            showInfo(booksToPrettyString(sorted), "View All Books");
+        });
 
         // Click "Search Books by Title"
-        searchTitleButton.addActionListener(e ->
-                showInfo("Searching books by title... (Librarian placeholder)", "Search by Title"));
+        searchTitleButton.addActionListener(e -> {
+            String query = JOptionPane.showInputDialog(null, "Enter part of the title:");
+            if (query == null || query.trim().isEmpty()) return;
+
+            List<Book> results = librarian.searchByTitle(query.trim());
+
+            // Ask for sorting, then show results
+            ArrayList<Book> sorted = getSortedBooksCopy(results);
+
+            showInfo(booksToPrettyString(sorted), "Search by Title");
+        });
 
         // Click "Add New Book"
-        addBookButton.addActionListener(e ->
-                showInfo("Adding new book... (Librarian only)", "Add Book"));
+        addBookButton.addActionListener(e -> {
+            String author = JOptionPane.showInputDialog(null, "Enter author:");
+            if (author == null || author.trim().isEmpty()) return;
+
+            String title = JOptionPane.showInputDialog(null, "Enter title:");
+            if (title == null || title.trim().isEmpty()) return;
+
+            String serialText = JOptionPane.showInputDialog(null, "Enter serial number:");
+            if (serialText == null || serialText.trim().isEmpty()) return;
+
+            try {
+                int serial = Integer.parseInt(serialText.trim());
+
+                // Uses your Book constructor (author, title, serial)
+                Book b = new Book(author.trim(), title.trim(), serial);
+
+                // Uses librarian logic (adds + saves to books.txt)
+                librarian.addBook(b);
+
+                showInfo("Book added successfully!", "Add Book");
+
+            } catch (NumberFormatException ex) {
+                showError("Serial number must be a number.", "Add Book");
+            }
+        });
 
         // Click "View Renters"
-        viewRentersButton.addActionListener(e ->
-                showInfo("Viewing renters... (Librarian only)", "View Renters"));
+        viewRentersButton.addActionListener(e -> {
+            List<String> renters = librarian.listRenters();
+
+            if (renters.isEmpty()) {
+                showInfo("No active rentals.", "View Renters");
+                return;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            for (String line : renters) {
+                sb.append(line).append("\n");
+            }
+
+            showInfo(sb.toString(), "View Renters");
+        });
 
         // Click "Log Out"
         logoutButton.addActionListener(e -> {
