@@ -8,6 +8,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
 public class Book {
+	private static final String BOOKS_PATH ="src/com/library/checkout/book/Books.txt";
 	private String author;
 	private String title;
 	private int serial_number;
@@ -30,7 +31,7 @@ public class Book {
 			this.author=temp[0];
 			this.title=temp[1];
 			this.serial_number=Integer.parseInt(temp[2]);
-			if(temp[3]=="true"){
+			if(temp[3].equals("true")){
 				this.checked_out=true;
 			}
 			else{
@@ -75,7 +76,7 @@ public class Book {
 		String temp_title;
 		int temp_SN;
 		boolean temp_check;
-		try (Scanner scanner = new Scanner(new File("src/com/library/checkout/book/Books.txt"))) {
+		try (Scanner scanner = new Scanner(new File(BOOKS_PATH))) {
         	while (scanner.hasNextLine()) {
                 temp_line = scanner.nextLine();
 				try {
@@ -83,7 +84,7 @@ public class Book {
 					temp_auth=temp[0];
 					temp_title=temp[1];
 					temp_SN=Integer.parseInt(temp[2]);
-					if(temp[3]=="true"){
+					if(temp[3].equals("true")){
 						temp_check=true;
 					}
 					else{
@@ -105,7 +106,7 @@ public class Book {
 	}
 	public void write_books_to_file(Vector<Book> list){ //clears book.txt, fills it in with books from the vector that is fed into it
 		try {
-	        FileWriter file_writer = new FileWriter("Books.txt", false);
+	        FileWriter file_writer = new FileWriter(BOOKS_PATH, false);
 			PrintWriter printWriter = new PrintWriter(file_writer);
 			for (Book element : list) {
         		printWriter.println(element.to_string()); 
@@ -117,7 +118,7 @@ public class Book {
 	}
 	public void write_book_to_file(Book book){ //appends one book to the end of the book file.
 		try {
-	        FileWriter file_writer = new FileWriter("Books.txt", true);
+	        FileWriter file_writer = new FileWriter(BOOKS_PATH, true);
         	PrintWriter printWriter = new PrintWriter(file_writer);
         	printWriter.println(book.to_string()); // Writes the element followed by a new line			
     	}
